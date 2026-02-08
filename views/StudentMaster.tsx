@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { Student, ClassId } from '../types';
+import { Student, ClassId, Grade } from '../types';
 import NfcScannerModal from '../components/NfcScannerModal';
 import Modal from '../components/Modal';
 
 interface Props {
+  grade: Grade;
   classId: ClassId;
 }
 
-const StudentMaster: React.FC<Props> = ({ classId }) => {
+const StudentMaster: React.FC<Props> = ({ grade, classId }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [formData, setFormData] = useState({ number: '', name: '', nfcId: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -19,8 +20,8 @@ const StudentMaster: React.FC<Props> = ({ classId }) => {
   const [modalConfig, setModalConfig] = useState({ isOpen: false, id: -1 });
 
   useEffect(() => {
-    setStudents(Storage.getStudents(classId));
-  }, [classId]);
+    setStudents(Storage.getStudents(grade, classId));
+  }, [grade, classId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ const StudentMaster: React.FC<Props> = ({ classId }) => {
         number: num,
         name: formData.name,
         nfcId: formData.nfcId,
+        grade: grade,
         classId: classId,
         createdAt: new Date().toISOString()
       };
@@ -56,7 +58,7 @@ const StudentMaster: React.FC<Props> = ({ classId }) => {
     }
 
     setStudents(updated);
-    Storage.saveStudents(updated, classId);
+    Storage.saveStudents(updated, grade, classId);
     setFormData({ number: '', name: '', nfcId: '' });
   };
 
@@ -74,7 +76,7 @@ const StudentMaster: React.FC<Props> = ({ classId }) => {
     const id = modalConfig.id;
     const updated = students.filter(s => s.id !== id);
     setStudents(updated);
-    Storage.saveStudents(updated, classId);
+    Storage.saveStudents(updated, grade, classId);
     setModalConfig({ isOpen: false, id: -1 });
   };
 

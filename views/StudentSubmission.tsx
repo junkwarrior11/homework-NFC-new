@@ -1,14 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { Student, Homework, HomeworkSubmission, ClassId } from '../types';
+import { Student, Homework, HomeworkSubmission, ClassId, Grade } from '../types';
 import NfcScannerModal from '../components/NfcScannerModal';
 
-interface Props {
-  classId?: ClassId | null;
-}
-
-const StudentSubmission: React.FC<Props> = ({ classId }) => {
+const StudentSubmission: React.FC = () => {
   // ステップ管理: 1:カード認識(ログイン), 2:宿題選択, 4:提出完了 (旧3は削除)
   const [step, setStep] = useState<1 | 2 | 4>(1);
   const [nfcInput, setNfcInput] = useState('');
@@ -24,13 +20,13 @@ const StudentSubmission: React.FC<Props> = ({ classId }) => {
     
     const now = new Date();
     const day = String(now.getDay());
-    // Use student's classId to get class-specific homework
-    const hwList = Storage.getHomework(student.classId).filter(h => 
+    // Use student's grade and classId to get class-specific homework
+    const hwList = Storage.getHomework(student.grade, student.classId).filter(h => 
         (Array.isArray(h.dayOfWeek) && (h.dayOfWeek.includes(day as any) || h.dayOfWeek.includes('everyday'))) ||
         (h.dayOfWeek as any === day || h.dayOfWeek as any === 'everyday')
     );
     setTodayHw(hwList);
-    setSubmissions(Storage.getHomeworkSubmissions(student.classId));
+    setSubmissions(Storage.getHomeworkSubmissions(student.grade, student.classId));
   }, [student]);
 
   // カード認識（ログイン処理）
@@ -38,12 +34,20 @@ const StudentSubmission: React.FC<Props> = ({ classId }) => {
     const targetId = id || nfcInput.trim();
     if (!targetId) return;
     
-    // Search students from all classes
-    const allStudents = [
-      ...Storage.getStudents('い組'),
-      ...Storage.getStudents('ろ組')
-    ];
-    const foundStudent = allStudents.find(st => st.nfcId === targetId);
+    // Search students from all grades and classes
+    const allGrades: Grade[] = ['1年', '2年', '3年', '4年', '5年', '6年'];
+    const allClasses: ClassId[] = ['い組', 'ろ組'];
+    let foundStudent: Student | undefined;
+    
+    for (const grade of allGrades) {
+      for (const classId of allClasses) {
+        const students = Storage.getStudents(grade, classId);
+        foundStudent = students.find(st => st.nfcId === targetId);
+        if (foundStudent) break;
+      }
+      if (foundStudent) break;
+    }
+    
     if (!foundStudent) {
       alert("カードIDが見つかりませんでした。正しいIDを入力してください。");
       setNfcInput('');
@@ -76,7 +80,7 @@ const StudentSubmission: React.FC<Props> = ({ classId }) => {
     if (!student || ids.length === 0) return;
     
     const now = new Date();
-    let updatedSubmissions = [...Storage.getHomeworkSubmissions(student.classId)];
+    let updatedSubmissions = [...Storage.getHomeworkSubmissions(student.grade, student.classId)];
 
     ids.forEach(hwId => {
       const idx = updatedSubmissions.findIndex(sub => sub.homeworkId === hwId && sub.studentId === student.id);
@@ -109,7 +113,7 @@ const StudentSubmission: React.FC<Props> = ({ classId }) => {
       }
     });
 
-    Storage.saveHomeworkSubmissions(updatedSubmissions, student.classId);
+    Storage.saveHomeworkSubmissions(updatedSubmissions, student.grade, student.classId);
     setSubmissions(updatedSubmissions);
     setStep(4);
   };
@@ -137,11 +141,12 @@ const StudentSubmission: React.FC<Props> = ({ classId }) => {
   const resetFlow = () => {
     setStep(1);
     setNfcInput('');
+    const currentGrade = student?.grade;
     const currentClassId = student?.classId;
     setStudent(null);
     setSelectedHwIds([]);
-    if (currentClassId) {
-      setSubmissions(Storage.getHomeworkSubmissions(currentClassId));
+    if (currentGrade && currentClassId) {
+      setSubmissions(Storage.getHomeworkSubmissions(currentGrade, currentClassId));
     }
   };
 

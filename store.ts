@@ -1,8 +1,11 @@
 
-import { Student, Homework, HomeworkSubmission, AppSettings, ClassId } from './types';
+import { Student, Homework, HomeworkSubmission, AppSettings, ClassId, Grade } from './types';
 
-const getClassKey = (baseKey: string, classId?: ClassId | null) => {
-  return classId ? `${baseKey}_${classId}` : baseKey;
+const getClassKey = (baseKey: string, grade?: Grade | null, classId?: ClassId | null) => {
+  if (grade && classId) {
+    return `${baseKey}_${grade}_${classId}`;
+  }
+  return baseKey;
 };
 
 const KEYS = {
@@ -22,17 +25,17 @@ const set = (key: string, value: any): void => {
 };
 
 export const Storage = {
-  getStudents: (classId?: ClassId | null): Student[] => {
-    const key = getClassKey(KEYS.STUDENTS, classId);
+  getStudents: (grade?: Grade | null, classId?: ClassId | null): Student[] => {
+    const key = getClassKey(KEYS.STUDENTS, grade, classId);
     return get<Student[]>(key) || [];
   },
-  saveStudents: (data: Student[], classId?: ClassId | null) => {
-    const key = getClassKey(KEYS.STUDENTS, classId);
+  saveStudents: (data: Student[], grade?: Grade | null, classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.STUDENTS, grade, classId);
     set(key, data);
   },
 
-  getHomework: (classId?: ClassId | null): Homework[] => {
-    const key = getClassKey(KEYS.HOMEWORK, classId);
+  getHomework: (grade?: Grade | null, classId?: ClassId | null): Homework[] => {
+    const key = getClassKey(KEYS.HOMEWORK, grade, classId);
     const list = get<Homework[]>(key) || [];
     // 互換性維持: dayOfWeekが配列でない場合は配列に変換
     return list.map(hw => ({
@@ -40,17 +43,17 @@ export const Storage = {
         dayOfWeek: Array.isArray(hw.dayOfWeek) ? hw.dayOfWeek : [hw.dayOfWeek as any]
     }));
   },
-  saveHomework: (data: Homework[], classId?: ClassId | null) => {
-    const key = getClassKey(KEYS.HOMEWORK, classId);
+  saveHomework: (data: Homework[], grade?: Grade | null, classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.HOMEWORK, grade, classId);
     set(key, data);
   },
 
-  getHomeworkSubmissions: (classId?: ClassId | null): HomeworkSubmission[] => {
-    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, classId);
+  getHomeworkSubmissions: (grade?: Grade | null, classId?: ClassId | null): HomeworkSubmission[] => {
+    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, grade, classId);
     return get<HomeworkSubmission[]>(key) || [];
   },
-  saveHomeworkSubmissions: (data: HomeworkSubmission[], classId?: ClassId | null) => {
-    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, classId);
+  saveHomeworkSubmissions: (data: HomeworkSubmission[], grade?: Grade | null, classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, grade, classId);
     set(key, data);
   },
 

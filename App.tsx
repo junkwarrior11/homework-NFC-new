@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from './store';
-import { UserMode, AppSettings, ClassId } from './types';
+import { UserMode, AppSettings, ClassId, Grade } from './types';
 import Layout from './components/Layout';
 import Dashboard from './views/Dashboard';
 import HomeworkView from './views/Homework';
@@ -12,6 +12,7 @@ import Modal from './components/Modal';
 
 const App: React.FC = () => {
   const [userMode, setUserMode] = useState<UserMode | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<Grade | null>(null);
   const [selectedClass, setSelectedClass] = useState<ClassId | null>(null);
   const [isTeacherAuthenticated, setIsTeacherAuthenticated] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
@@ -79,12 +80,17 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSelectGrade = (grade: Grade) => {
+    setSelectedGrade(grade);
+  };
+
   const handleSelectClass = (classId: ClassId) => {
     setSelectedClass(classId);
   };
 
   const handleExit = () => {
     setUserMode(null);
+    setSelectedGrade(null);
     setSelectedClass(null);
     setIsTeacherAuthenticated(false);
     sessionStorage.removeItem('userMode');
@@ -148,17 +154,49 @@ const App: React.FC = () => {
     );
   }
 
-  // Class Selection Screen (for teacher mode)
-  if (userMode === 'teacher' && !selectedClass) {
+  // Grade Selection Screen (for teacher mode)
+  if (userMode === 'teacher' && !selectedGrade) {
     return (
       <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border-t-8 border-purple-600">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 border-t-8 border-indigo-600">
           <button onClick={handleExit} className="text-slate-400 hover:text-slate-600 mb-6 flex items-center font-bold text-sm">
             ← モード選択に戻る
           </button>
           <div className="text-center mb-8">
+            <span className="text-5xl mb-4 block">🎓</span>
+            <h2 className="text-2xl font-black text-slate-800">学年を選択</h2>
+            <p className="text-slate-500 mt-1 font-medium text-sm">担当する学年を選んでください</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {(['1年', '2年', '3年', '4年', '5年', '6年'] as Grade[]).map((grade, index) => (
+              <button
+                key={grade}
+                onClick={() => handleSelectGrade(grade)}
+                className={`bg-gradient-to-br ${
+                  ['from-red-400 to-red-500', 'from-orange-400 to-orange-500', 'from-yellow-400 to-yellow-500', 
+                   'from-green-400 to-green-500', 'from-blue-400 to-blue-500', 'from-purple-400 to-purple-500'][index]
+                } text-white font-black py-8 rounded-xl hover:scale-105 shadow-lg active:scale-95 transition-all text-2xl`}
+              >
+                {grade}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Class Selection Screen (for teacher mode)
+  if (userMode === 'teacher' && selectedGrade && !selectedClass) {
+    return (
+      <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border-t-8 border-purple-600">
+          <button onClick={() => setSelectedGrade(null)} className="text-slate-400 hover:text-slate-600 mb-6 flex items-center font-bold text-sm">
+            ← 学年選択に戻る
+          </button>
+          <div className="text-center mb-8">
             <span className="text-5xl mb-4 block">🏫</span>
-            <h2 className="text-2xl font-black text-slate-800">クラスを選択</h2>
+            <h2 className="text-2xl font-black text-slate-800">{selectedGrade} クラスを選択</h2>
             <p className="text-slate-500 mt-1 font-medium text-sm">担当するクラスを選んでください</p>
           </div>
           <div className="space-y-4">
@@ -215,14 +253,14 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (userMode === 'student') return <StudentSubmission classId={selectedClass} />;
+    if (userMode === 'student') return <StudentSubmission />;
     
     switch (currentTab) {
-      case 'dashboard': return <Dashboard classId={selectedClass!} />;
-      case 'homework': return <HomeworkView classId={selectedClass!} />;
-      case 'students': return <StudentMaster classId={selectedClass!} />;
-      case 'export': return <ExportView classId={selectedClass!} />;
-      default: return <Dashboard classId={selectedClass!} />;
+      case 'dashboard': return <Dashboard grade={selectedGrade!} classId={selectedClass!} />;
+      case 'homework': return <HomeworkView grade={selectedGrade!} classId={selectedClass!} />;
+      case 'students': return <StudentMaster grade={selectedGrade!} classId={selectedClass!} />;
+      case 'export': return <ExportView grade={selectedGrade!} classId={selectedClass!} />;
+      default: return <Dashboard grade={selectedGrade!} classId={selectedClass!} />;
     }
   };
 

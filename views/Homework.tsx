@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { Student, Homework, HomeworkSubmission, DayOfWeek, ClassId } from '../types';
+import { Student, Homework, HomeworkSubmission, DayOfWeek, ClassId, Grade } from '../types';
 import { geminiService } from '../services/gemini';
 import Modal from '../components/Modal';
 
 interface Props {
+  grade: Grade;
   classId: ClassId;
 }
 
-const HomeworkView: React.FC<Props> = ({ classId }) => {
+const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [homeworkList, setHomeworkList] = useState<Homework[]>([]);
   const [submissions, setSubmissions] = useState<HomeworkSubmission[]>([]);
@@ -47,10 +48,10 @@ const HomeworkView: React.FC<Props> = ({ classId }) => {
   });
 
   useEffect(() => {
-    setStudents(Storage.getStudents(classId));
-    setHomeworkList(Storage.getHomework(classId));
-    setSubmissions(Storage.getHomeworkSubmissions(classId));
-  }, [classId]);
+    setStudents(Storage.getStudents(grade, classId));
+    setHomeworkList(Storage.getHomework(grade, classId));
+    setSubmissions(Storage.getHomeworkSubmissions(grade, classId));
+  }, [grade, classId]);
 
   const showAlert = (title: string, message: string) => {
     setModalConfig({
@@ -116,7 +117,7 @@ const HomeworkView: React.FC<Props> = ({ classId }) => {
             ? { ...h, title: formData.title, dayOfWeek: formData.dayOfWeek, description: formData.description } 
             : h
         );
-        Storage.saveHomework(updated, classId);
+        Storage.saveHomework(updated, grade, classId);
         return updated;
       });
       setEditingHwId(null);
@@ -130,7 +131,7 @@ const HomeworkView: React.FC<Props> = ({ classId }) => {
       };
       setHomeworkList(prev => {
         const updated = [...prev, newEntry];
-        Storage.saveHomework(updated, classId);
+        Storage.saveHomework(updated, grade, classId);
         return updated;
       });
     }
@@ -160,13 +161,13 @@ const HomeworkView: React.FC<Props> = ({ classId }) => {
       () => {
         setHomeworkList(prev => {
           const updated = prev.filter(h => h.id !== id);
-          Storage.saveHomework(updated, classId);
+          Storage.saveHomework(updated, grade, classId);
           return updated;
         });
         
         setSubmissions(prev => {
           const updatedSub = prev.filter(s => s.homeworkId !== id);
-          Storage.saveHomeworkSubmissions(updatedSub, classId);
+          Storage.saveHomeworkSubmissions(updatedSub, grade, classId);
           return updatedSub;
         });
         
@@ -212,7 +213,7 @@ const HomeworkView: React.FC<Props> = ({ classId }) => {
           submittedTime: Storage.formatTime(now)
         });
       }
-      Storage.saveHomeworkSubmissions(updated, classId);
+      Storage.saveHomeworkSubmissions(updated, grade, classId);
       return updated;
     });
   };

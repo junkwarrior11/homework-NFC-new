@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { ClassId } from '../types';
+import { ClassId, Grade } from '../types';
 import Modal from '../components/Modal';
 
 interface Props {
+  grade: Grade;
   classId: ClassId;
 }
 
-const ExportView: React.FC<Props> = ({ classId }) => {
+const ExportView: React.FC<Props> = ({ grade, classId }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -55,7 +56,7 @@ const ExportView: React.FC<Props> = ({ classId }) => {
   };
 
   const handleExportStudents = () => {
-    const students = Storage.getStudents(classId);
+    const students = Storage.getStudents(grade, classId);
     downloadCSV(
       students.map(s => ({ number: s.number, name: s.name, nfcId: s.nfcId })),
       ['出席番号', '名前', 'NFC ID'],
@@ -64,8 +65,8 @@ const ExportView: React.FC<Props> = ({ classId }) => {
   };
 
   const handleExportHomeworkSubmissions = () => {
-    const submissions = Storage.getHomeworkSubmissions(classId);
-    const homework = Storage.getHomework(classId);
+    const submissions = Storage.getHomeworkSubmissions(grade, classId);
+    const homework = Storage.getHomework(grade, classId);
     
     const data = submissions.map(s => {
         const hw = homework.find(h => h.id === s.homeworkId);
@@ -91,9 +92,9 @@ const ExportView: React.FC<Props> = ({ classId }) => {
     const backup = {
       timestamp: new Date().toISOString(),
       version: '1.0',
-      students: Storage.getStudents(classId),
-      homework: Storage.getHomework(classId),
-      homeworkSubmissions: Storage.getHomeworkSubmissions(classId),
+      students: Storage.getStudents(grade, classId),
+      homework: Storage.getHomework(grade, classId),
+      homeworkSubmissions: Storage.getHomeworkSubmissions(grade, classId),
       settings: Storage.getSettings()
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });

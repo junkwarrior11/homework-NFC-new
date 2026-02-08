@@ -1,6 +1,7 @@
 
 export type UserMode = 'teacher' | 'student';
 
+export type Grade = '1年' | '2年' | '3年' | '4年' | '5年' | '6年';
 export type ClassId = 'い組' | 'ろ組';
 
 export interface Student {
@@ -8,6 +9,7 @@ export interface Student {
   number: number;
   name: string;
   nfcId: string;
+  grade: Grade;
   classId: ClassId;
   createdAt: string;
 }
