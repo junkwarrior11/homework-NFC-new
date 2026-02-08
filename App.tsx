@@ -170,7 +170,6 @@ const App: React.FC = () => {
             <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all text-lg">
               管理画面へ進む
             </button>
-            <p className="text-center text-xs text-slate-400 font-bold uppercase tracking-tighter">初期設定: teacher2026</p>
           </form>
         </div>
       </div>
