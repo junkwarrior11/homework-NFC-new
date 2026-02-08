@@ -1,11 +1,14 @@
 
 export type UserMode = 'teacher' | 'student';
 
+export type ClassId = 'い組' | 'ろ組';
+
 export interface Student {
   id: number;
   number: number;
   name: string;
   nfcId: string;
+  classId: ClassId;
   createdAt: string;
 }
 

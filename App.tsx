@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from './store';
-import { UserMode, AppSettings } from './types';
+import { UserMode, AppSettings, ClassId } from './types';
 import Layout from './components/Layout';
 import Dashboard from './views/Dashboard';
 import HomeworkView from './views/Homework';
@@ -12,6 +12,7 @@ import Modal from './components/Modal';
 
 const App: React.FC = () => {
   const [userMode, setUserMode] = useState<UserMode | null>(null);
+  const [selectedClass, setSelectedClass] = useState<ClassId | null>(null);
   const [isTeacherAuthenticated, setIsTeacherAuthenticated] = useState(false);
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [settings, setSettings] = useState<AppSettings>({ password: '' });
@@ -78,8 +79,13 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSelectClass = (classId: ClassId) => {
+    setSelectedClass(classId);
+  };
+
   const handleExit = () => {
     setUserMode(null);
+    setSelectedClass(null);
     setIsTeacherAuthenticated(false);
     sessionStorage.removeItem('userMode');
     sessionStorage.removeItem('isTeacherAuth');
@@ -142,6 +148,38 @@ const App: React.FC = () => {
     );
   }
 
+  // Class Selection Screen (for teacher mode)
+  if (userMode === 'teacher' && !selectedClass) {
+    return (
+      <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border-t-8 border-purple-600">
+          <button onClick={handleExit} className="text-slate-400 hover:text-slate-600 mb-6 flex items-center font-bold text-sm">
+            ← モード選択に戻る
+          </button>
+          <div className="text-center mb-8">
+            <span className="text-5xl mb-4 block">🏫</span>
+            <h2 className="text-2xl font-black text-slate-800">クラスを選択</h2>
+            <p className="text-slate-500 mt-1 font-medium text-sm">担当するクラスを選んでください</p>
+          </div>
+          <div className="space-y-4">
+            <button
+              onClick={() => handleSelectClass('い組')}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-black py-6 rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-lg active:scale-[0.98] transition-all text-2xl"
+            >
+              🌸 い組
+            </button>
+            <button
+              onClick={() => handleSelectClass('ろ組')}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-black py-6 rounded-xl hover:from-green-600 hover:to-green-700 shadow-lg active:scale-[0.98] transition-all text-2xl"
+            >
+              🌼 ろ組
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Teacher Authentication Screen
   if (userMode === 'teacher' && !isTeacherAuthenticated) {
     return (
@@ -177,14 +215,14 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (userMode === 'student') return <StudentSubmission />;
+    if (userMode === 'student') return <StudentSubmission classId={selectedClass} />;
     
     switch (currentTab) {
-      case 'dashboard': return <Dashboard />;
-      case 'homework': return <HomeworkView />;
-      case 'students': return <StudentMaster />;
-      case 'export': return <ExportView />;
-      default: return <Dashboard />;
+      case 'dashboard': return <Dashboard classId={selectedClass!} />;
+      case 'homework': return <HomeworkView classId={selectedClass!} />;
+      case 'students': return <StudentMaster classId={selectedClass!} />;
+      case 'export': return <ExportView classId={selectedClass!} />;
+      default: return <Dashboard classId={selectedClass!} />;
     }
   };
 

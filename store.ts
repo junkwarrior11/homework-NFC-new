@@ -1,5 +1,9 @@
 
-import { Student, Homework, HomeworkSubmission, AppSettings } from './types';
+import { Student, Homework, HomeworkSubmission, AppSettings, ClassId } from './types';
+
+const getClassKey = (baseKey: string, classId?: ClassId | null) => {
+  return classId ? `${baseKey}_${classId}` : baseKey;
+};
 
 const KEYS = {
   STUDENTS: 'school_students',
@@ -18,21 +22,37 @@ const set = (key: string, value: any): void => {
 };
 
 export const Storage = {
-  getStudents: (): Student[] => get<Student[]>(KEYS.STUDENTS) || [],
-  saveStudents: (data: Student[]) => set(KEYS.STUDENTS, data),
+  getStudents: (classId?: ClassId | null): Student[] => {
+    const key = getClassKey(KEYS.STUDENTS, classId);
+    return get<Student[]>(key) || [];
+  },
+  saveStudents: (data: Student[], classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.STUDENTS, classId);
+    set(key, data);
+  },
 
-  getHomework: (): Homework[] => {
-    const list = get<Homework[]>(KEYS.HOMEWORK) || [];
+  getHomework: (classId?: ClassId | null): Homework[] => {
+    const key = getClassKey(KEYS.HOMEWORK, classId);
+    const list = get<Homework[]>(key) || [];
     // 互換性維持: dayOfWeekが配列でない場合は配列に変換
     return list.map(hw => ({
         ...hw,
         dayOfWeek: Array.isArray(hw.dayOfWeek) ? hw.dayOfWeek : [hw.dayOfWeek as any]
     }));
   },
-  saveHomework: (data: Homework[]) => set(KEYS.HOMEWORK, data),
+  saveHomework: (data: Homework[], classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.HOMEWORK, classId);
+    set(key, data);
+  },
 
-  getHomeworkSubmissions: (): HomeworkSubmission[] => get<HomeworkSubmission[]>(KEYS.HOMEWORK_SUBMISSIONS) || [],
-  saveHomeworkSubmissions: (data: HomeworkSubmission[]) => set(KEYS.HOMEWORK_SUBMISSIONS, data),
+  getHomeworkSubmissions: (classId?: ClassId | null): HomeworkSubmission[] => {
+    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, classId);
+    return get<HomeworkSubmission[]>(key) || [];
+  },
+  saveHomeworkSubmissions: (data: HomeworkSubmission[], classId?: ClassId | null) => {
+    const key = getClassKey(KEYS.HOMEWORK_SUBMISSIONS, classId);
+    set(key, data);
+  },
 
   getSettings: (): AppSettings => get<AppSettings>(KEYS.SETTINGS) || {
     password: 'teacher2026'
