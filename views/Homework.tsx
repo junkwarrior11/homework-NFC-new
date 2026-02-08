@@ -382,7 +382,7 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
                           <td className="px-8 py-4">
                             {sub?.touchRecorded ? (
                               <div className="inline-flex items-center bg-green-50 text-green-600 px-3 py-1 rounded-lg text-xs font-black ring-1 ring-green-100">
-                                <span className="mr-1.5">📦</span> 提出: {sub.touchTime}
+                                <span className="mr-1.5">📦</span> 提出: {sub.touchDate} {sub.touchTime}
                               </div>
                             ) : (
                               <span className="text-xs text-slate-300 font-black italic">未提出</span>
