@@ -1,0 +1,18 @@
+
+{
+  "name": "ClassSync Pro",
+  "short_name": "ClassSync",
+  "description": "小学校向け宿題・出席管理システム",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3429/3429156.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
