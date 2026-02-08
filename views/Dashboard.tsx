@@ -1,8 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
+import { ClassId } from '../types';
 
-const Dashboard: React.FC = () => {
+interface Props {
+  classId: ClassId;
+}
+
+const Dashboard: React.FC<Props> = ({ classId }) => {
   const [stats, setStats] = useState({
     totalStudents: 0,
     homeworkCount: 0,
@@ -12,9 +17,9 @@ const Dashboard: React.FC = () => {
   const [homeworkStats, setHomeworkStats] = useState<any[]>([]);
 
   useEffect(() => {
-    const students = Storage.getStudents();
-    const homework = Storage.getHomework();
-    const submissions = Storage.getHomeworkSubmissions();
+    const students = Storage.getStudents(classId);
+    const homework = Storage.getHomework(classId);
+    const submissions = Storage.getHomeworkSubmissions(classId);
     const today = Storage.formatDate(new Date());
     const dayOfWeek = String(new Date().getDay());
 
@@ -61,7 +66,7 @@ const Dashboard: React.FC = () => {
         };
     });
     setHomeworkStats(breakdown);
-  }, []);
+  }, [classId]);
 
   return (
     <div className="space-y-6">

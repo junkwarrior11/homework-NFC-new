@@ -1,9 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
+import { ClassId } from '../types';
 import Modal from '../components/Modal';
 
-const ExportView: React.FC = () => {
+interface Props {
+  classId: ClassId;
+}
+
+const ExportView: React.FC<Props> = ({ classId }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -50,7 +55,7 @@ const ExportView: React.FC = () => {
   };
 
   const handleExportStudents = () => {
-    const students = Storage.getStudents();
+    const students = Storage.getStudents(classId);
     downloadCSV(
       students.map(s => ({ number: s.number, name: s.name, nfcId: s.nfcId })),
       ['出席番号', '名前', 'NFC ID'],
@@ -59,8 +64,8 @@ const ExportView: React.FC = () => {
   };
 
   const handleExportHomeworkSubmissions = () => {
-    const submissions = Storage.getHomeworkSubmissions();
-    const homework = Storage.getHomework();
+    const submissions = Storage.getHomeworkSubmissions(classId);
+    const homework = Storage.getHomework(classId);
     
     const data = submissions.map(s => {
         const hw = homework.find(h => h.id === s.homeworkId);
@@ -86,9 +91,9 @@ const ExportView: React.FC = () => {
     const backup = {
       timestamp: new Date().toISOString(),
       version: '1.0',
-      students: Storage.getStudents(),
-      homework: Storage.getHomework(),
-      homeworkSubmissions: Storage.getHomeworkSubmissions(),
+      students: Storage.getStudents(classId),
+      homework: Storage.getHomework(classId),
+      homeworkSubmissions: Storage.getHomeworkSubmissions(classId),
       settings: Storage.getSettings()
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });

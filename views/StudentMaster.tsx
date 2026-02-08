@@ -1,11 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { Student } from '../types';
+import { Student, ClassId } from '../types';
 import NfcScannerModal from '../components/NfcScannerModal';
 import Modal from '../components/Modal';
 
-const StudentMaster: React.FC = () => {
+interface Props {
+  classId: ClassId;
+}
+
+const StudentMaster: React.FC<Props> = ({ classId }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [formData, setFormData] = useState({ number: '', name: '', nfcId: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -15,8 +19,8 @@ const StudentMaster: React.FC = () => {
   const [modalConfig, setModalConfig] = useState({ isOpen: false, id: -1 });
 
   useEffect(() => {
-    setStudents(Storage.getStudents());
-  }, []);
+    setStudents(Storage.getStudents(classId));
+  }, [classId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,13 +49,14 @@ const StudentMaster: React.FC = () => {
         number: num,
         name: formData.name,
         nfcId: formData.nfcId,
+        classId: classId,
         createdAt: new Date().toISOString()
       };
       updated = [...students, newStudent];
     }
 
     setStudents(updated);
-    Storage.saveStudents(updated);
+    Storage.saveStudents(updated, classId);
     setFormData({ number: '', name: '', nfcId: '' });
   };
 
@@ -69,7 +74,7 @@ const StudentMaster: React.FC = () => {
     const id = modalConfig.id;
     const updated = students.filter(s => s.id !== id);
     setStudents(updated);
-    Storage.saveStudents(updated);
+    Storage.saveStudents(updated, classId);
     setModalConfig({ isOpen: false, id: -1 });
   };
 

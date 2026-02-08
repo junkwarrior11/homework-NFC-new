@@ -1,11 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
-import { Student, Homework, HomeworkSubmission, DayOfWeek } from '../types';
+import { Student, Homework, HomeworkSubmission, DayOfWeek, ClassId } from '../types';
 import { geminiService } from '../services/gemini';
 import Modal from '../components/Modal';
 
-const HomeworkView: React.FC = () => {
+interface Props {
+  classId: ClassId;
+}
+
+const HomeworkView: React.FC<Props> = ({ classId }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [homeworkList, setHomeworkList] = useState<Homework[]>([]);
   const [submissions, setSubmissions] = useState<HomeworkSubmission[]>([]);
@@ -43,10 +47,10 @@ const HomeworkView: React.FC = () => {
   });
 
   useEffect(() => {
-    setStudents(Storage.getStudents());
-    setHomeworkList(Storage.getHomework());
-    setSubmissions(Storage.getHomeworkSubmissions());
-  }, []);
+    setStudents(Storage.getStudents(classId));
+    setHomeworkList(Storage.getHomework(classId));
+    setSubmissions(Storage.getHomeworkSubmissions(classId));
+  }, [classId]);
 
   const showAlert = (title: string, message: string) => {
     setModalConfig({
@@ -112,7 +116,7 @@ const HomeworkView: React.FC = () => {
             ? { ...h, title: formData.title, dayOfWeek: formData.dayOfWeek, description: formData.description } 
             : h
         );
-        Storage.saveHomework(updated);
+        Storage.saveHomework(updated, classId);
         return updated;
       });
       setEditingHwId(null);
@@ -126,7 +130,7 @@ const HomeworkView: React.FC = () => {
       };
       setHomeworkList(prev => {
         const updated = [...prev, newEntry];
-        Storage.saveHomework(updated);
+        Storage.saveHomework(updated, classId);
         return updated;
       });
     }
@@ -156,13 +160,13 @@ const HomeworkView: React.FC = () => {
       () => {
         setHomeworkList(prev => {
           const updated = prev.filter(h => h.id !== id);
-          Storage.saveHomework(updated);
+          Storage.saveHomework(updated, classId);
           return updated;
         });
         
         setSubmissions(prev => {
           const updatedSub = prev.filter(s => s.homeworkId !== id);
-          Storage.saveHomeworkSubmissions(updatedSub);
+          Storage.saveHomeworkSubmissions(updatedSub, classId);
           return updatedSub;
         });
         
@@ -208,7 +212,7 @@ const HomeworkView: React.FC = () => {
           submittedTime: Storage.formatTime(now)
         });
       }
-      Storage.saveHomeworkSubmissions(updated);
+      Storage.saveHomeworkSubmissions(updated, classId);
       return updated;
     });
   };
