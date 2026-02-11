@@ -10,6 +10,7 @@ interface NfcScannerModalProps {
 const NfcScannerModal: React.FC<NfcScannerModalProps> = ({ isOpen, onClose, onDetected }) => {
   const [error, setError] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
+  const [readerType, setReaderType] = useState<'electron' | 'web' | 'none'>('none');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -18,12 +19,46 @@ const NfcScannerModal: React.FC<NfcScannerModalProps> = ({ isOpen, onClose, onDe
     const abortController = new AbortController();
 
     const startScanning = async () => {
+      // 1. Check if running in Electron with NFC support
+      if (window.electronAPI) {
+        const nfcStatus = await window.electronAPI.getNFCStatus();
+        
+        if (nfcStatus.available) {
+          setReaderType('electron');
+          setIsReading(true);
+
+          // Set up Electron NFC listeners
+          window.electronAPI.onNFCCardDetected((data) => {
+            console.log('📱 Electron NFC card detected:', data.uid);
+            onDetected(data.uid);
+            onClose();
+          });
+
+          window.electronAPI.onNFCError((data) => {
+            setError(`ICカードリーダーエラー: ${data.message}`);
+            setIsReading(false);
+          });
+
+          // Request scan
+          const result = await window.electronAPI.requestNFCScan();
+          if (!result.success) {
+            setError(result.message);
+            setIsReading(false);
+          }
+
+          return;
+        }
+      }
+
+      // 2. Fall back to Web NFC API (for Android Chrome)
       if (!('NDEFReader' in window)) {
+        setReaderType('none');
         setError('お使いのブラウザはNFCスキャンに対応していません。手動で入力してください。');
         return;
       }
 
       try {
+        setReaderType('web');
         setIsReading(true);
         // @ts-ignore
         ndef = new NDEFReader();
@@ -52,6 +87,11 @@ const NfcScannerModal: React.FC<NfcScannerModalProps> = ({ isOpen, onClose, onDe
 
     return () => {
       abortController.abort();
+      
+      // Clean up Electron listeners
+      if (window.electronAPI) {
+        window.electronAPI.removeNFCListeners();
+      }
     };
   }, [isOpen, onDetected, onClose]);
 
@@ -82,8 +122,11 @@ const NfcScannerModal: React.FC<NfcScannerModalProps> = ({ isOpen, onClose, onDe
           </div>
         ) : (
           <p className="text-slate-500 font-bold mb-8 leading-relaxed">
-            デバイスの背面付近に<br/>
-            NFCカードをかざしてください...
+            {readerType === 'electron' ? (
+              <>ICカードリーダーに<br/>カードをかざしてください...</>
+            ) : (
+              <>デバイスの背面付近に<br/>NFCカードをかざしてください...</>
+            )}
           </p>
         )}
 
