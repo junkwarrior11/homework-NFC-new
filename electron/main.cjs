@@ -4,9 +4,14 @@ const path = require('path');
 // NFC reader support (optional - will be installed on Windows PC)
 let NFC = null;
 try {
-  NFC = require('nfc-pcsc').NFC;
+  const nfcModule = require('nfc-pcsc');
+  NFC = nfcModule.NFC;
+  console.log('✅ NFC module loaded successfully');
+  console.log('📦 NFC module keys:', Object.keys(nfcModule));
 } catch (error) {
   console.warn('⚠️ NFC reader library not available. Install on Windows PC for card reader support.');
+  console.error('🔍 Error details:', error.message);
+  console.error('🔍 Error stack:', error.stack);
 }
 
 let mainWindow = null;
