@@ -61,7 +61,18 @@ function initializeNFCReader() {
       }
 
       reader.on('card', card => {
-        console.log('💳 Card detected:', card.uid);
+        console.log('💳 Card detected!');
+        console.log('  UID:', card.uid);
+        console.log('  Type:', card.type);
+        console.log('  ATR:', card.atr);
+        
+        // For FeliCa cards (RC-S300), also check data
+        if (card.data) {
+          const idm = card.data.toString('hex').toUpperCase();
+          console.log('  FeliCa IDm:', idm);
+        }
+        
+        console.log('  Full card:', JSON.stringify(card, null, 2));
 
         // Send card UID to renderer
         if (mainWindow) {
