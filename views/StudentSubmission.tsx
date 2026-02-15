@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
 import { Student, Homework, HomeworkSubmission, ClassId, Grade } from '../types';
 import NfcScannerModal from '../components/NfcScannerModal';
@@ -12,7 +11,41 @@ const StudentSubmission: React.FC = () => {
   const [todayHw, setTodayHw] = useState<Homework[]>([]);
   const [selectedHwIds, setSelectedHwIds] = useState<number[]>([]);
   const [submissions, setSubmissions] = useState<HomeworkSubmission[]>([]);
-  const [isNfcModalOpen, setIsNfcModalOpen] = useState(false);
+
+  // 🔥 自動NFCスキャン: step 1 で自動的にNFCリスニング開始
+  useEffect(() => {
+    if (step === 1) {
+      window.electron?.startNFCListener?.();
+    }
+    return () => {
+      window.electron?.stopNFCListener?.();
+    };
+  }, [step]);
+
+  // 🔥 NFCカード検出時の自動ログイン
+  useEffect(() => {
+    const handleCardDetected = (_event: any, data: { uid: string }) => {
+      if (step === 1) {
+        handleReadCard(data.uid);
+      }
+    };
+
+    window.electron?.onNFCCard?.(handleCardDetected);
+    
+    return () => {
+      window.electron?.removeNFCListener?.(handleCardDetected);
+    };
+  }, [step]);
+
+  // 🔥 提出完了後3秒で自動リセット
+  useEffect(() => {
+    if (step === 4) {
+      const timer = setTimeout(() => {
+        resetFlow();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [step]);
 
   // 初回読み込みとデータの同期
   useEffect(() => {
@@ -20,7 +53,6 @@ const StudentSubmission: React.FC = () => {
     
     const now = new Date();
     const day = String(now.getDay());
-    // Use student's grade and classId to get class-specific homework
     const hwList = Storage.getHomework(student.grade, student.classId).filter(h => 
         (Array.isArray(h.dayOfWeek) && (h.dayOfWeek.includes(day as any) || h.dayOfWeek.includes('everyday'))) ||
         (h.dayOfWeek as any === day || h.dayOfWeek as any === 'everyday')
@@ -59,10 +91,6 @@ const StudentSubmission: React.FC = () => {
     setNfcInput(''); 
   };
 
-  const handleNfcDetected = (serialNumber: string) => {
-    handleReadCard(serialNumber);
-  };
-
   // 宿題の選択切り替え
   const handleToggleSelect = (id: number) => {
     const isAlreadySubmitted = submissions.some(sub => sub.homeworkId === id && sub.studentId === student?.id && sub.touchRecorded);
@@ -72,6 +100,30 @@ const StudentSubmission: React.FC = () => {
       setSelectedHwIds(selectedHwIds.filter(hId => hId !== id));
     } else {
       setSelectedHwIds([...selectedHwIds, id]);
+    }
+  };
+
+  // 🔥 提出取り消し機能
+  const handleCancelSubmission = (homeworkId: number) => {
+    if (!student) return;
+    
+    const confirmed = confirm("この宿題の提出を取り消しますか？");
+    if (!confirmed) return;
+    
+    let updatedSubmissions = [...Storage.getHomeworkSubmissions(student.grade, student.classId)];
+    const idx = updatedSubmissions.findIndex(sub => sub.homeworkId === homeworkId && sub.studentId === student.id);
+    
+    if (idx >= 0) {
+      updatedSubmissions[idx] = {
+        ...updatedSubmissions[idx],
+        touchRecorded: false,
+        touchRecordedAt: null,
+        touchDate: null,
+        touchTime: null
+      };
+      Storage.saveHomeworkSubmissions(updatedSubmissions, student.grade, student.classId);
+      setSubmissions(updatedSubmissions);
+      alert("提出を取り消しました。");
     }
   };
 
@@ -155,11 +207,6 @@ const StudentSubmission: React.FC = () => {
   if (step === 1) {
     return (
       <div className="max-w-2xl mx-auto py-4 px-4 min-h-screen flex items-center">
-        <NfcScannerModal 
-          isOpen={isNfcModalOpen} 
-          onClose={() => setIsNfcModalOpen(false)} 
-          onDetected={handleNfcDetected} 
-        />
         <div className="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl border-b-[12px] border-blue-500 text-center relative overflow-hidden w-full">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-10 opacity-50"></div>
           <div className="relative inline-block mb-6">
@@ -176,36 +223,48 @@ const StudentSubmission: React.FC = () => {
             宿題をだすために、<br/>
             <span className="text-slate-800">じぶんのカード</span>をかざしてね。
           </p>
+          
+          {/* 🔥 カード待機中の表示（自動スキャン中） */}
+          <div className="bg-blue-50 border-4 border-blue-200 rounded-3xl p-6 mb-6">
+            <div className="animate-pulse">
+              <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-4xl">📡</span>
+              </div>
+              <p className="text-blue-700 font-black text-xl">
+                カードをかざしてください
+              </p>
+              <p className="text-blue-600 text-sm font-bold mt-1">
+                自動的にログインします
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-5 max-w-md mx-auto">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t-2 border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-slate-400 font-bold">または</span>
+              </div>
+            </div>
+            
             <div className="relative group">
               <input 
                 type="text" 
                 value={nfcInput}
                 onChange={e => setNfcInput(e.target.value)}
-                placeholder="カードIDを入力するかタッチ"
-                className="w-full text-3xl font-black text-center border-4 border-slate-100 bg-slate-50 p-6 rounded-[2rem] focus:border-blue-500 focus:bg-white focus:ring-6 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-300 shadow-inner group-hover:border-slate-200"
-                autoFocus
+                placeholder="カードIDを手入力"
+                className="w-full text-2xl font-bold text-center border-3 border-slate-100 bg-slate-50 p-5 rounded-[2rem] focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 outline-none transition-all placeholder:text-slate-300 shadow-inner group-hover:border-slate-200"
                 onKeyDown={(e) => e.key === 'Enter' && handleReadCard()}
               />
-              <div className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-200 pointer-events-none group-focus-within:text-blue-200 transition-colors">
-                 <span className="text-3xl">⌨️</span>
-              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button 
-                onClick={() => handleReadCard()}
-                className="flex-1 bg-slate-900 text-white text-2xl font-black py-6 rounded-[1.5rem] hover:bg-slate-800 shadow-xl active:scale-95 transition-all flex items-center justify-center"
-              >
-                ログイン
-              </button>
-              <button 
-                type="button"
-                onClick={() => setIsNfcModalOpen(true)}
-                className="flex-1 bg-blue-600 text-white text-2xl font-black py-6 rounded-[1.5rem] hover:bg-blue-700 shadow-xl active:scale-95 transition-all flex items-center justify-center"
-              >
-                <span className="mr-2">📡</span> スキャン
-              </button>
-            </div>
+            <button 
+              onClick={() => handleReadCard()}
+              className="w-full bg-slate-900 text-white text-xl font-black py-5 rounded-[1.5rem] hover:bg-slate-800 shadow-xl active:scale-95 transition-all"
+            >
+              手入力でログイン
+            </button>
           </div>
           <div className="mt-8 flex justify-center space-x-2">
             <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
@@ -230,7 +289,7 @@ const StudentSubmission: React.FC = () => {
           </div>
           <div className="mb-6">
             <h3 className="text-lg font-black text-slate-400 mb-3 flex items-center uppercase tracking-widest">
-               今日だす宿題をえらんでね
+              📝 今日だす宿題をえらんでね
             </h3>
             <div className="space-y-3 max-h-[40vh] overflow-y-auto">
               {todayHw.map(hw => {
@@ -254,12 +313,19 @@ const StudentSubmission: React.FC = () => {
                       <p className={`text-xs font-bold ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{hw.description}</p>
                     </div>
                     {isSubmitted ? (
-                      <div className="bg-green-500 text-white px-3 py-1.5 rounded-xl text-sm font-black flex items-center shadow-sm">
-                        <span className="mr-1">✅</span> だした
-                      </div>
+                      // 🔥 提出済み → 取り消しボタン
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelSubmission(hw.id);
+                        }}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-xl text-sm font-black flex items-center shadow-sm transition-colors"
+                      >
+                        <span className="mr-1">🔄</span> 取り消し
+                      </button>
                     ) : isSelected ? (
                       <div className="bg-white text-blue-600 w-10 h-10 rounded-full flex items-center justify-center font-black shadow-inner animate-pulse">
-                         <span className="text-xl font-black">✓</span>
+                        <span className="text-xl font-black">✓</span>
                       </div>
                     ) : (
                       <div className="w-10 h-10 border-3 border-slate-100 rounded-full group-hover:border-blue-200 transition-colors"></div>
@@ -313,15 +379,23 @@ const StudentSubmission: React.FC = () => {
           <div className="absolute bottom-24 right-12 text-3xl animate-pulse">🎉</div>
           <div className="text-[8rem] mb-6 leading-none drop-shadow-2xl">🎖️</div>
           <h2 className="text-5xl font-black text-slate-800 mb-6 tracking-tighter">提出かんりょう！</h2>
-          <p className="text-xl text-slate-500 font-bold mb-10 leading-relaxed">
+          <p className="text-xl text-slate-500 font-bold mb-6 leading-relaxed">
             宿題をだしたよ。よくがんばりました！<br/>
             <span className="text-slate-800 font-black">タブレットを、つぎの人にかしてあげてね。</span>
           </p>
+          
+          {/* 🔥 3秒後の自動リセット表示 */}
+          <div className="bg-blue-50 border-3 border-blue-200 rounded-2xl p-4 mb-6">
+            <p className="text-blue-700 font-black text-lg">
+              3秒後に自動的に戻ります...
+            </p>
+          </div>
+
           <button 
             onClick={resetFlow}
-            className="w-full bg-slate-900 text-white text-4xl font-black py-10 rounded-[2rem] hover:bg-slate-800 shadow-2xl active:scale-95 transition-all border-b-[6px] border-slate-700"
+            className="w-full bg-slate-900 text-white text-3xl font-black py-8 rounded-[2rem] hover:bg-slate-800 shadow-2xl active:scale-95 transition-all border-b-[6px] border-slate-700"
           >
-            つぎの人へ交代する
+            すぐに交代する
           </button>
         </div>
       </div>

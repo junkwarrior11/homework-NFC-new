@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
 import { Student, ClassId, Grade } from '../types';
@@ -83,6 +83,22 @@ const StudentMaster: React.FC<Props> = ({ grade, classId }) => {
   const handleNfcDetected = (serialNumber: string) => {
     setFormData(prev => ({ ...prev, nfcId: serialNumber }));
   };
+  // 🔥 直接NFCイベントリスナーを登録
+  useEffect(() => {
+    const handleCardDetected = (event: any, data: { uid: string }) => {
+      console.log('📡 NFC Card detected in StudentMaster:', data.uid);
+      setFormData(prev => ({ ...prev, nfcId: data.uid }));
+      if (isNfcModalOpen) {
+        setIsNfcModalOpen(false);
+      }
+    };
+
+    window.electron?.onNFCCard?.(handleCardDetected);
+    
+    return () => {
+      window.electron?.removeNFCListener?.(handleCardDetected);
+    };
+  }, [isNfcModalOpen]);
 
   return (
     <div className="space-y-8 pb-10">
@@ -225,3 +241,4 @@ const StudentMaster: React.FC<Props> = ({ grade, classId }) => {
 };
 
 export default StudentMaster;
+

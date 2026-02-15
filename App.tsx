@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { Storage } from './store';
 import { UserMode, AppSettings, ClassId, Grade } from './types';
@@ -277,3 +277,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
