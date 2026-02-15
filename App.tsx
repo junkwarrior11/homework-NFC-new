@@ -48,25 +48,19 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-   // 🔥 パスワード入力欄が表示されたら自動的にフォーカス
+  // 🔥 パスワード入力欄が表示されたら常にフォーカス
   useEffect(() => {
     if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
-      // 100ms 待ってからフォーカス（レンダリング完了を待つ）
-      const timer = setTimeout(() => {
-        passwordInputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+      // 複数回フォーカスを試みる（より確実に）
+      const timers = [
+        setTimeout(() => passwordInputRef.current?.focus(), 0),
+        setTimeout(() => passwordInputRef.current?.focus(), 50),
+        setTimeout(() => passwordInputRef.current?.focus(), 100),
+        setTimeout(() => passwordInputRef.current?.focus(), 200)
+      ];
+      return () => timers.forEach(timer => clearTimeout(timer));
     }
   }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
-<input 
-  ref={passwordInputRef}
-  type="password" 
-  value={loginPass}
-  onChange={e => setLoginPass(e.target.value)}
-  placeholder="パスワードを入力"
-  className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
-  autoFocus  // ← この行を追加
-/>
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -91,13 +85,10 @@ const App: React.FC = () => {
     } else {
       alert("パスワードが違います");
       setLoginPass('');
-      // 🔥 修正: パスワード入力欄を強制的にクリアしてフォーカス
-      setTimeout(() => {
-        if (passwordInputRef.current) {
-          passwordInputRef.current.value = '';
-          passwordInputRef.current.focus();
-        }
-      }, 100);
+      // 🔥 エラー後も確実にフォーカス
+      requestAnimationFrame(() => {
+        passwordInputRef.current?.focus();
+      });
     }
   };
 
@@ -269,6 +260,10 @@ const App: React.FC = () => {
                 type="password" 
                 value={loginPass}
                 onChange={e => setLoginPass(e.target.value)}
+                onBlur={() => {
+                  // 🔥 フォーカスが外れたら即座に戻す
+                  setTimeout(() => passwordInputRef.current?.focus(), 0);
+                }}
                 placeholder="パスワードを入力"
                 className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
                 autoFocus
@@ -308,6 +303,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
-
-
