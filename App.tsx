@@ -1,5 +1,4 @@
-﻿
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Storage } from './store';
 import { UserMode, AppSettings, ClassId, Grade } from './types';
 import Layout from './components/Layout';
@@ -20,6 +19,9 @@ const App: React.FC = () => {
   const [loginPass, setLoginPass] = useState('');
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // 🔥 パスワード入力欄への参照
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Storage.initializeDefaults();
@@ -46,6 +48,17 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
+  // 🔥 パスワード入力欄が表示されたら自動的にフォーカス
+  useEffect(() => {
+    if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
+      // 100ms 待ってからフォーカス（レンダリング完了を待つ）
+      const timer = setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass]);
+
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -68,6 +81,14 @@ const App: React.FC = () => {
       setLoginPass('');
     } else {
       alert("パスワードが違います");
+      setLoginPass('');
+      // 🔥 修正: パスワード入力欄を強制的にクリアしてフォーカス
+      setTimeout(() => {
+        if (passwordInputRef.current) {
+          passwordInputRef.current.value = '';
+          passwordInputRef.current.focus();
+        }
+      }, 100);
     }
   };
 
@@ -235,6 +256,7 @@ const App: React.FC = () => {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1 uppercase tracking-wider">Password</label>
               <input 
+                ref={passwordInputRef}
                 type="password" 
                 value={loginPass}
                 onChange={e => setLoginPass(e.target.value)}
@@ -277,5 +299,6 @@ const App: React.FC = () => {
 };
 
 export default App;
+
 
 
