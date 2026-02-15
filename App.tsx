@@ -48,7 +48,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // 🔥 パスワード入力欄が表示されたら自動的にフォーカス
+   // 🔥 パスワード入力欄が表示されたら自動的にフォーカス
   useEffect(() => {
     if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
       // 100ms 待ってからフォーカス（レンダリング完了を待つ）
@@ -57,7 +57,7 @@ const App: React.FC = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass]);
+  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
