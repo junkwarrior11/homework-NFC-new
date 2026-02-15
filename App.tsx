@@ -48,17 +48,35 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // 🔥 パスワード入力欄が表示されたら常にフォーカス
+  // 🔥 パスワード画面でのグローバルキーボードイベント
   useEffect(() => {
     if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
-      // 複数回フォーカスを試みる（より確実に）
-      const timers = [
-        setTimeout(() => passwordInputRef.current?.focus(), 0),
-        setTimeout(() => passwordInputRef.current?.focus(), 50),
-        setTimeout(() => passwordInputRef.current?.focus(), 100),
-        setTimeout(() => passwordInputRef.current?.focus(), 200)
-      ];
-      return () => timers.forEach(timer => clearTimeout(timer));
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // EnterキーとTabキー以外の入力を受け付ける
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleTeacherLogin(e as any);
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          setLoginPass(prev => prev.slice(0, -1));
+        } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+          // 通常の文字入力
+          e.preventDefault();
+          setLoginPass(prev => prev + e.key);
+        }
+        
+        // 常に入力欄にフォーカスを戻す
+        passwordInputRef.current?.focus();
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      
+      // 初回フォーカス
+      setTimeout(() => passwordInputRef.current?.focus(), 100);
+      
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     }
   }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
 
@@ -85,10 +103,6 @@ const App: React.FC = () => {
     } else {
       alert("パスワードが違います");
       setLoginPass('');
-      // 🔥 エラー後も確実にフォーカス
-      requestAnimationFrame(() => {
-        passwordInputRef.current?.focus();
-      });
     }
   };
 
@@ -251,6 +265,7 @@ const App: React.FC = () => {
             <span className="text-5xl mb-4 block">🔑</span>
             <h2 className="text-2xl font-black text-slate-800">先生用ログイン</h2>
             <p className="text-slate-500 mt-1 font-medium text-sm">管理画面に入るためのパスワードが必要です</p>
+            <p className="text-blue-600 mt-4 font-bold text-sm">💡 キーボードで直接入力できます</p>
           </div>
           <form onSubmit={handleTeacherLogin} className="space-y-6">
             <div>
@@ -260,12 +275,8 @@ const App: React.FC = () => {
                 type="password" 
                 value={loginPass}
                 onChange={e => setLoginPass(e.target.value)}
-                onBlur={() => {
-                  // 🔥 フォーカスが外れたら即座に戻す
-                  setTimeout(() => passwordInputRef.current?.focus(), 0);
-                }}
                 placeholder="パスワードを入力"
-                className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
+                className="w-full px-4 py-4 border-2 border-blue-300 rounded-xl focus:border-blue-500 outline-none transition-all text-lg bg-blue-50"
                 autoFocus
               />
             </div>
