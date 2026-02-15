@@ -58,6 +58,15 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
+<input 
+  ref={passwordInputRef}
+  type="password" 
+  value={loginPass}
+  onChange={e => setLoginPass(e.target.value)}
+  placeholder="パスワードを入力"
+  className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
+  autoFocus  // ← この行を追加
+/>
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
