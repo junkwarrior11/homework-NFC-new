@@ -19,8 +19,6 @@ const App: React.FC = () => {
   const [loginPass, setLoginPass] = useState('');
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
-  // 🔥 パスワード入力欄への参照
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -28,7 +26,6 @@ const App: React.FC = () => {
     const savedSettings = Storage.getSettings();
     setSettings(savedSettings);
     
-    // Check session
     const savedMode = sessionStorage.getItem('userMode') as UserMode;
     const isAuth = sessionStorage.getItem('isTeacherAuth') === 'true';
     
@@ -39,7 +36,6 @@ const App: React.FC = () => {
       setIsTeacherAuthenticated(true);
     }
 
-    // Capture PWA Install Prompt
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -48,11 +44,16 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // 🔥 パスワード画面でのグローバルキーボードイベント
+  // パスワード画面でのみグローバルキーボードイベントを有効化
   useEffect(() => {
     if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
       const handleKeyDown = (e: KeyboardEvent) => {
-        // EnterキーとTabキー以外の入力を受け付ける
+        const target = e.target as HTMLElement;
+        // INPUT/TEXTAREA/SELECT がフォーカスされている場合、パスワード入力欄以外は通常動作
+        if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') && target !== passwordInputRef.current) {
+          return;
+        }
+        
         if (e.key === 'Enter') {
           e.preventDefault();
           handleTeacherLogin(e as any);
@@ -60,23 +61,15 @@ const App: React.FC = () => {
           e.preventDefault();
           setLoginPass(prev => prev.slice(0, -1));
         } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-          // 通常の文字入力
           e.preventDefault();
           setLoginPass(prev => prev + e.key);
         }
-        
-        // 常に入力欄にフォーカスを戻す
         passwordInputRef.current?.focus();
       };
-
+      
       window.addEventListener('keydown', handleKeyDown);
-      
-      // 初回フォーカス
       setTimeout(() => passwordInputRef.current?.focus(), 100);
-      
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-      };
+      return () => window.removeEventListener('keydown', handleKeyDown);
     }
   }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
 
@@ -103,6 +96,7 @@ const App: React.FC = () => {
     } else {
       alert("パスワードが違います");
       setLoginPass('');
+      setTimeout(() => passwordInputRef.current?.focus(), 100);
     }
   };
 
@@ -132,7 +126,7 @@ const App: React.FC = () => {
     sessionStorage.removeItem('isTeacherAuth');
   };
 
-  // Portal / Mode Selection Screen
+  // モード選択画面
   if (!userMode) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -153,7 +147,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Student Portal Card */}
             <button 
               onClick={() => handleSelectMode('student')}
               className="bg-white rounded-[3rem] p-10 shadow-2xl hover:scale-105 transition-all group border-[12px] border-transparent hover:border-blue-400 text-center"
@@ -163,7 +156,6 @@ const App: React.FC = () => {
               <p className="text-slate-500 font-bold text-xl leading-relaxed">宿題を出すときはこちらのボタンを押してね！</p>
             </button>
 
-            {/* Teacher Portal Card */}
             <button 
               onClick={() => handleSelectMode('teacher')}
               className="bg-white rounded-[3rem] p-10 shadow-2xl hover:scale-105 transition-all group border-[12px] border-transparent hover:border-slate-700 text-center"
@@ -189,7 +181,7 @@ const App: React.FC = () => {
     );
   }
 
-  // Grade Selection Screen (for teacher mode)
+  // 学年選択画面（教師モード）
   if (userMode === 'teacher' && !selectedGrade) {
     return (
       <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
@@ -221,7 +213,7 @@ const App: React.FC = () => {
     );
   }
 
-  // Class Selection Screen (for teacher mode)
+  // クラス選択画面（教師モード）
   if (userMode === 'teacher' && selectedGrade && !selectedClass) {
     return (
       <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
@@ -253,7 +245,7 @@ const App: React.FC = () => {
     );
   }
 
-  // Teacher Authentication Screen
+  // パスワード認証画面（教師モード）
   if (userMode === 'teacher' && !isTeacherAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
@@ -265,7 +257,7 @@ const App: React.FC = () => {
             <span className="text-5xl mb-4 block">🔑</span>
             <h2 className="text-2xl font-black text-slate-800">先生用ログイン</h2>
             <p className="text-slate-500 mt-1 font-medium text-sm">管理画面に入るためのパスワードが必要です</p>
-            <p className="text-blue-600 mt-4 font-bold text-sm">💡 キーボードで直接入力できます</p>
+            <p className="text-blue-600 text-xs mt-2 font-bold">💡 キーボードで直接入力できます</p>
           </div>
           <form onSubmit={handleTeacherLogin} className="space-y-6">
             <div>
@@ -276,8 +268,7 @@ const App: React.FC = () => {
                 value={loginPass}
                 onChange={e => setLoginPass(e.target.value)}
                 placeholder="パスワードを入力"
-                className="w-full px-4 py-4 border-2 border-blue-300 rounded-xl focus:border-blue-500 outline-none transition-all text-lg bg-blue-50"
-                autoFocus
+                className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
               />
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all text-lg">
