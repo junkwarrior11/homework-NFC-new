@@ -115,11 +115,105 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
         unsubmittedCount: unsubmittedHw.length
       };
     })
-    .filter(report => report.unsubmittedCount > 0) // 未提出がある児童のみ
-    .sort((a, b) => b.unsubmittedCount - a.unsubmittedCount); // 未提出数が多い順
+    .filter(report => report.unsubmittedCount > 0)
+    .sort((a, b) => b.unsubmittedCount - a.unsubmittedCount);
 
     setStudentBacklogReports(backlogReports);
   }, [grade, classId]);
+
+  // 🔥 今日の未提出者リストをCSVエクスポート
+  const exportTodayUnsubmittedCSV = () => {
+    if (todayUnsubmittedReports.length === 0) {
+      alert('今日の宿題がありません');
+      return;
+    }
+
+    const rows: string[] = [];
+    rows.push('宿題名,日付,出席番号,氏名,NFC ID');
+
+    todayUnsubmittedReports.forEach(report => {
+      report.unsubmittedStudents.forEach(student => {
+        rows.push([
+          report.homework.title,
+          formatDate(report.homework.date) || '―',
+          student.number,
+          student.name,
+          student.nfcId || '―'
+        ].join(','));
+      });
+    });
+
+    downloadCSV(rows.join('\n'), `今日の未提出者_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // 🔥 未提出が溜まっている児童リストをCSVエクスポート
+  const exportStudentBacklogCSV = () => {
+    if (studentBacklogReports.length === 0) {
+      alert('未提出の児童がいません');
+      return;
+    }
+
+    const rows: string[] = [];
+    rows.push('出席番号,氏名,NFC ID,未提出件数,未提出の宿題');
+
+    studentBacklogReports.forEach(report => {
+      const homeworkTitles = report.unsubmittedHomework.map(hw => hw.title).join('・');
+      rows.push([
+        report.student.number,
+        report.student.name,
+        report.student.nfcId || '―',
+        report.unsubmittedCount,
+        `"${homeworkTitles}"`
+      ].join(','));
+    });
+
+    downloadCSV(rows.join('\n'), `未提出溜まり児童_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // 🔥 全体の未提出者リストをCSVエクスポート（詳細版）
+  const exportAllUnsubmittedCSV = () => {
+    const students = Storage.getStudents(grade, classId);
+    const homework = Storage.getHomework(grade, classId);
+    const submissions = Storage.getHomeworkSubmissions(grade, classId);
+
+    const rows: string[] = [];
+    // ヘッダー行
+    const header = ['出席番号', '氏名', 'NFC ID'];
+    homework.forEach(hw => {
+      header.push(hw.title);
+    });
+    rows.push(header.join(','));
+
+    // データ行
+    students.sort((a, b) => a.number - b.number).forEach(student => {
+      const row = [student.number.toString(), student.name, student.nfcId || '―'];
+      
+      homework.forEach(hw => {
+        const submitted = submissions.some(
+          sub => sub.studentId === student.id && sub.homeworkId === hw.id && sub.touchRecorded
+        );
+        row.push(submitted ? '○' : '×');
+      });
+      
+      rows.push(row.join(','));
+    });
+
+    downloadCSV(rows.join('\n'), `全宿題提出状況_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // CSVダウンロード関数
+  const downloadCSV = (content: string, filename: string) => {
+    const bom = '\uFEFF'; // UTF-8 BOM for Excel
+    const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -156,6 +250,41 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
           <span className="text-slate-500 text-sm font-bold mb-2">全体確認済み率</span>
           <span className="text-5xl font-black text-green-600">{stats.totalSubmissionRate}%</span>
           <span className="text-slate-400 text-xs mt-2 font-bold uppercase tracking-widest">Checked Rate</span>
+        </div>
+      </div>
+
+      {/* 🔥 CSVエクスポートボタン */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-black text-slate-800 flex items-center text-lg">
+              <span className="mr-2">📥</span> データエクスポート
+            </h3>
+            <p className="text-slate-500 text-xs mt-1">未提出者リストをCSV形式でダウンロードできます</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={exportTodayUnsubmittedCSV}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center"
+          >
+            <span className="mr-2">📅</span>
+            今日の未提出者
+          </button>
+          <button
+            onClick={exportStudentBacklogCSV}
+            className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center"
+          >
+            <span className="mr-2">⚠️</span>
+            未提出溜まり児童
+          </button>
+          <button
+            onClick={exportAllUnsubmittedCSV}
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center"
+          >
+            <span className="mr-2">📊</span>
+            全体提出状況
+          </button>
         </div>
       </div>
 
