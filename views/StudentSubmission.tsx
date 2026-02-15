@@ -1,10 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
 import { Student, Homework, HomeworkSubmission, ClassId, Grade } from '../types';
 import NfcScannerModal from '../components/NfcScannerModal';
 
 const StudentSubmission: React.FC = () => {
-  // ステップ管理: 1:カード認識(ログイン), 2:宿題選択, 4:提出完了 (旧3は削除)
+  // ステップ管理: 1:カード認識(ログイン), 2:宿題選択, 4:提出完了
   const [step, setStep] = useState<1 | 2 | 4>(1);
   const [nfcInput, setNfcInput] = useState('');
   const [student, setStudent] = useState<Student | null>(null);
@@ -107,11 +107,21 @@ const StudentSubmission: React.FC = () => {
   const handleCancelSubmission = (homeworkId: number) => {
     if (!student) return;
     
-    const confirmed = confirm("この宿題の提出を取り消しますか？");
-    if (!confirmed) return;
+    console.log('🔥 取り消しボタンがクリックされました:', homeworkId);
+    
+    const confirmed = window.confirm("この宿題の提出を取り消しますか？");
+    if (!confirmed) {
+      console.log('❌ ユーザーがキャンセルしました');
+      return;
+    }
+    
+    console.log('✅ 取り消し処理を開始します');
     
     let updatedSubmissions = [...Storage.getHomeworkSubmissions(student.grade, student.classId)];
+    console.log('📋 現在の提出データ:', updatedSubmissions);
+    
     const idx = updatedSubmissions.findIndex(sub => sub.homeworkId === homeworkId && sub.studentId === student.id);
+    console.log('🔍 対象のインデックス:', idx);
     
     if (idx >= 0) {
       updatedSubmissions[idx] = {
@@ -121,9 +131,24 @@ const StudentSubmission: React.FC = () => {
         touchDate: null,
         touchTime: null
       };
+      console.log('💾 更新後のデータ:', updatedSubmissions[idx]);
+      
       Storage.saveHomeworkSubmissions(updatedSubmissions, student.grade, student.classId);
       setSubmissions(updatedSubmissions);
+      
       alert("提出を取り消しました。");
+      console.log('✅ 取り消し完了');
+      
+      // 🔥 画面を強制的に再レンダリング
+      const now = new Date();
+      const day = String(now.getDay());
+      const hwList = Storage.getHomework(student.grade, student.classId).filter(h => 
+          (Array.isArray(h.dayOfWeek) && (h.dayOfWeek.includes(day as any) || h.dayOfWeek.includes('everyday'))) ||
+          (h.dayOfWeek as any === day || h.dayOfWeek as any === 'everyday')
+      );
+      setTodayHw(hwList);
+    } else {
+      console.log('❌ 対象の提出データが見つかりませんでした');
     }
   };
 
@@ -296,41 +321,57 @@ const StudentSubmission: React.FC = () => {
                 const isSubmitted = submissions.some(sub => sub.homeworkId === hw.id && sub.studentId === student.id && sub.touchRecorded);
                 const isSelected = selectedHwIds.includes(hw.id);
                 return (
-                  <button
+                  <div
                     key={hw.id}
-                    onClick={() => handleToggleSelect(hw.id)}
-                    disabled={isSubmitted}
                     className={`w-full p-4 rounded-2xl border-3 text-left transition-all relative overflow-hidden flex items-center justify-between group ${
                       isSubmitted 
-                      ? 'bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed' 
+                      ? 'bg-slate-50 border-slate-100' 
                       : isSelected 
                         ? 'bg-blue-600 border-blue-800 text-white shadow-lg scale-[1.02]' 
                         : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-blue-50/30'
                     }`}
                   >
-                    <div>
-                      <h4 className="text-xl font-black mb-0.5 leading-tight">{hw.title}</h4>
-                      <p className={`text-xs font-bold ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{hw.description}</p>
-                    </div>
                     {isSubmitted ? (
-                      // 🔥 提出済み → 取り消しボタン
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCancelSubmission(hw.id);
-                        }}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-xl text-sm font-black flex items-center shadow-sm transition-colors"
-                      >
-                        <span className="mr-1">🔄</span> 取り消し
-                      </button>
-                    ) : isSelected ? (
-                      <div className="bg-white text-blue-600 w-10 h-10 rounded-full flex items-center justify-center font-black shadow-inner animate-pulse">
-                        <span className="text-xl font-black">✓</span>
-                      </div>
+                      // 🔥 提出済み → 取り消しボタンのみ
+                      <>
+                        <div>
+                          <h4 className="text-xl font-black mb-0.5 leading-tight">{hw.title}</h4>
+                          <p className="text-xs font-bold text-slate-400">{hw.description}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            console.log('🖱️ 取り消しボタンがクリックされました');
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCancelSubmission(hw.id);
+                          }}
+                          className="relative z-10 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white px-4 py-2 rounded-xl text-sm font-black flex items-center shadow-lg transition-all hover:scale-105 cursor-pointer"
+                        >
+                          <span className="mr-1">🔄</span> 取り消し
+                        </button>
+                      </>
                     ) : (
-                      <div className="w-10 h-10 border-3 border-slate-100 rounded-full group-hover:border-blue-200 transition-colors"></div>
+                      // 🔥 未提出 → クリック可能な選択ボタン
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelect(hw.id)}
+                        className="w-full flex items-center justify-between"
+                      >
+                        <div>
+                          <h4 className="text-xl font-black mb-0.5 leading-tight">{hw.title}</h4>
+                          <p className={`text-xs font-bold ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{hw.description}</p>
+                        </div>
+                        {isSelected ? (
+                          <div className="bg-white text-blue-600 w-10 h-10 rounded-full flex items-center justify-center font-black shadow-inner animate-pulse">
+                            <span className="text-xl font-black">✓</span>
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 border-3 border-slate-100 rounded-full group-hover:border-blue-200 transition-colors"></div>
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
