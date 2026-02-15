@@ -12,6 +12,48 @@ const StudentSubmission: React.FC = () => {
   const [selectedHwIds, setSelectedHwIds] = useState<number[]>([]);
   const [submissions, setSubmissions] = useState<HomeworkSubmission[]>([]);
 
+  // 🔊 提出完了音を再生する関数
+  const playSuccessSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // ド (C5)
+      const oscillator1 = audioContext.createOscillator();
+      const gainNode1 = audioContext.createGain();
+      oscillator1.connect(gainNode1);
+      gainNode1.connect(audioContext.destination);
+      oscillator1.frequency.value = 523.25;
+      oscillator1.type = 'sine';
+      gainNode1.gain.value = 0.3;
+      oscillator1.start(audioContext.currentTime);
+      oscillator1.stop(audioContext.currentTime + 0.15);
+      
+      // ミ (E5)
+      const oscillator2 = audioContext.createOscillator();
+      const gainNode2 = audioContext.createGain();
+      oscillator2.connect(gainNode2);
+      gainNode2.connect(audioContext.destination);
+      oscillator2.frequency.value = 659.25;
+      oscillator2.type = 'sine';
+      gainNode2.gain.value = 0.3;
+      oscillator2.start(audioContext.currentTime + 0.15);
+      oscillator2.stop(audioContext.currentTime + 0.3);
+      
+      // ソ (G5)
+      const oscillator3 = audioContext.createOscillator();
+      const gainNode3 = audioContext.createGain();
+      oscillator3.connect(gainNode3);
+      gainNode3.connect(audioContext.destination);
+      oscillator3.frequency.value = 783.99;
+      oscillator3.type = 'sine';
+      gainNode3.gain.value = 0.3;
+      oscillator3.start(audioContext.currentTime + 0.3);
+      oscillator3.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.error('音声再生エラー:', error);
+    }
+  };
+
   // 🔥 自動NFCスキャン: step 1 で自動的にNFCリスニング開始
   useEffect(() => {
     if (step === 1) {
@@ -192,6 +234,10 @@ const StudentSubmission: React.FC = () => {
 
     Storage.saveHomeworkSubmissions(updatedSubmissions, student.grade, student.classId);
     setSubmissions(updatedSubmissions);
+    
+    // 🔊 提出完了音を再生
+    playSuccessSound();
+    
     setStep(4);
   };
 
