@@ -7,11 +7,17 @@ interface Props {
   classId: ClassId;
 }
 
-interface UnsubmittedReport {
+interface TodayUnsubmittedReport {
   homework: Homework;
   unsubmittedStudents: Student[];
   submittedCount: number;
   totalCount: number;
+}
+
+interface StudentBacklogReport {
+  student: Student;
+  unsubmittedHomework: Homework[];
+  unsubmittedCount: number;
 }
 
 const Dashboard: React.FC<Props> = ({ grade, classId }) => {
@@ -22,7 +28,8 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
     todaySubmissionRate: 0,
   });
   const [homeworkStats, setHomeworkStats] = useState<any[]>([]);
-  const [unsubmittedReports, setUnsubmittedReports] = useState<UnsubmittedReport[]>([]);
+  const [todayUnsubmittedReports, setTodayUnsubmittedReports] = useState<TodayUnsubmittedReport[]>([]);
+  const [studentBacklogReports, setStudentBacklogReports] = useState<StudentBacklogReport[]>([]);
 
   useEffect(() => {
     const students = Storage.getStudents(grade, classId);
@@ -75,15 +82,15 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
     });
     setHomeworkStats(breakdown);
 
-    // 🔥 未提出者レポートを作成
-    const reports: UnsubmittedReport[] = homework.map(hw => {
+    // 🔥 今日の未提出者レポート
+    const todayReports: TodayUnsubmittedReport[] = todayHw.map(hw => {
       const submittedStudentIds = submissions
         .filter(sub => sub.homeworkId === hw.id && sub.touchRecorded)
         .map(sub => sub.studentId);
       
       const unsubmitted = students
         .filter(stu => !submittedStudentIds.includes(stu.id))
-        .sort((a, b) => a.number - b.number); // 出席番号順
+        .sort((a, b) => a.number - b.number);
       
       return {
         homework: hw,
@@ -92,8 +99,26 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
         totalCount: students.length
       };
     });
+    setTodayUnsubmittedReports(todayReports);
 
-    setUnsubmittedReports(reports);
+    // 🔥 児童別の未提出溜まり状況
+    const backlogReports: StudentBacklogReport[] = students.map(student => {
+      const submittedHomeworkIds = submissions
+        .filter(sub => sub.studentId === student.id && sub.touchRecorded)
+        .map(sub => sub.homeworkId);
+      
+      const unsubmittedHw = homework.filter(hw => !submittedHomeworkIds.includes(hw.id));
+      
+      return {
+        student,
+        unsubmittedHomework: unsubmittedHw,
+        unsubmittedCount: unsubmittedHw.length
+      };
+    })
+    .filter(report => report.unsubmittedCount > 0) // 未提出がある児童のみ
+    .sort((a, b) => b.unsubmittedCount - a.unsubmittedCount); // 未提出数が多い順
+
+    setStudentBacklogReports(backlogReports);
   }, [grade, classId]);
 
   const formatDate = (dateString?: string) => {
@@ -134,35 +159,34 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
         </div>
       </div>
 
-      {/* 🔥 未提出者リスト */}
+      {/* 🔥 今日の未提出者リスト */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b bg-red-50">
+        <div className="px-6 py-4 border-b bg-blue-50">
           <h3 className="font-bold text-slate-800 flex items-center">
-            <span className="mr-2">📋</span> 未提出者リスト（宿題別）
+            <span className="mr-2">📅</span> 今日の提出状況
           </h3>
-          <p className="text-slate-500 text-xs mt-1">宿題ごとに未提出の児童を表示しています</p>
+          <p className="text-slate-500 text-xs mt-1">本日の宿題の未提出者を表示しています</p>
         </div>
         <div className="p-6">
-          {unsubmittedReports.length === 0 ? (
+          {todayUnsubmittedReports.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4">📚</div>
-              <p className="text-slate-400 font-bold">宿題が登録されていません</p>
+              <div className="text-6xl mb-4">🎈</div>
+              <p className="text-slate-400 font-bold">今日の宿題はありません</p>
             </div>
           ) : (
             <div className="space-y-6">
-              {unsubmittedReports.map(report => (
+              {todayUnsubmittedReports.map(report => (
                 <div key={report.homework.id} className="border-2 border-slate-100 rounded-xl p-5 hover:border-blue-200 transition-colors">
-                  {/* 宿題情報ヘッダー */}
                   <div className="flex items-start justify-between mb-4 pb-4 border-b-2 border-slate-100">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-black text-slate-800">{report.homework.title}</h3>
                         <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-black rounded-full">
-                          {formatDayOfWeek(report.homework.dayOfWeek)}
+                          📅 今日
                         </span>
                         {report.homework.date && (
                           <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
-                            📅 {formatDate(report.homework.date)}
+                            {formatDate(report.homework.date)}
                           </span>
                         )}
                       </div>
@@ -187,7 +211,6 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
                     </div>
                   </div>
 
-                  {/* 未提出者リスト */}
                   {report.unsubmittedStudents.length > 0 ? (
                     <div>
                       <div className="text-sm font-bold text-slate-600 mb-3 uppercase tracking-wider">未提出の児童:</div>
@@ -209,6 +232,86 @@ const Dashboard: React.FC<Props> = ({ grade, classId }) => {
                       <span className="text-green-700 font-black">全員提出済みです！</span>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 🔥 未提出が溜まっている児童リスト */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b bg-orange-50">
+          <h3 className="font-bold text-slate-800 flex items-center">
+            <span className="mr-2">⚠️</span> 未提出が溜まっている児童
+          </h3>
+          <p className="text-slate-500 text-xs mt-1">全ての宿題の中で未提出が多い児童を表示しています</p>
+        </div>
+        <div className="p-6">
+          {studentBacklogReports.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🎉</div>
+              <p className="text-slate-400 font-bold">全員の提出状況は良好です！</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {studentBacklogReports.map(report => (
+                <div 
+                  key={report.student.id} 
+                  className={`border-2 rounded-xl p-4 hover:shadow-md transition-all ${
+                    report.unsubmittedCount >= 5 
+                      ? 'border-red-300 bg-red-50' 
+                      : report.unsubmittedCount >= 3
+                      ? 'border-orange-300 bg-orange-50'
+                      : 'border-yellow-300 bg-yellow-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl ${
+                        report.unsubmittedCount >= 5 
+                          ? 'bg-red-200 text-red-700' 
+                          : report.unsubmittedCount >= 3
+                          ? 'bg-orange-200 text-orange-700'
+                          : 'bg-yellow-200 text-yellow-700'
+                      }`}>
+                        {report.unsubmittedCount}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-slate-600 font-black text-sm">出席番号 {report.student.number}</span>
+                          <span className="text-2xl font-black text-slate-800">{report.student.name}</span>
+                        </div>
+                        <div className="text-sm text-slate-600 font-bold">
+                          {report.unsubmittedCount}件の宿題が未提出
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`px-4 py-2 rounded-full font-black text-sm ${
+                      report.unsubmittedCount >= 5 
+                        ? 'bg-red-200 text-red-700' 
+                        : report.unsubmittedCount >= 3
+                        ? 'bg-orange-200 text-orange-700'
+                        : 'bg-yellow-200 text-yellow-700'
+                    }`}>
+                      {report.unsubmittedCount >= 5 ? '🚨 要注意' : report.unsubmittedCount >= 3 ? '⚠️ 注意' : '💡 確認'}
+                    </div>
+                  </div>
+                  
+                  {/* 未提出の宿題リスト */}
+                  <div className="mt-4 pt-4 border-t-2 border-slate-200">
+                    <div className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">未提出の宿題:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {report.unsubmittedHomework.map(hw => (
+                        <span 
+                          key={hw.id} 
+                          className="px-3 py-1 bg-white border-2 border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-blue-300 transition-colors"
+                        >
+                          {hw.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
