@@ -64,14 +64,37 @@ const App: React.FC = () => {
           e.preventDefault();
           setLoginPass(prev => prev + e.key);
         }
-        passwordInputRef.current?.focus();
+        
+        // 常にフォーカスを戻す
+        requestAnimationFrame(() => {
+          passwordInputRef.current?.focus();
+        });
+      };
+
+      const handleBlur = () => {
+        // フォーカスが外れたら即座に戻す
+        requestAnimationFrame(() => {
+          passwordInputRef.current?.focus();
+        });
       };
       
       window.addEventListener('keydown', handleKeyDown);
-      setTimeout(() => passwordInputRef.current?.focus(), 100);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+      if (passwordInputRef.current) {
+        passwordInputRef.current.addEventListener('blur', handleBlur);
+      }
+      
+      // 初回フォーカス
+      const focusTimer = setTimeout(() => passwordInputRef.current?.focus(), 100);
+      
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        if (passwordInputRef.current) {
+          passwordInputRef.current.removeEventListener('blur', handleBlur);
+        }
+        clearTimeout(focusTimer);
+      };
     }
-  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
+  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -96,7 +119,10 @@ const App: React.FC = () => {
     } else {
       alert("パスワードが違います");
       setLoginPass('');
-      setTimeout(() => passwordInputRef.current?.focus(), 100);
+      // アラート後にフォーカスを戻す
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 100);
     }
   };
 
