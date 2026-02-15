@@ -44,15 +44,15 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  // パスワード画面でのみ自動フォーカス（問題発生前の状態）
+  // パスワード入力欄に常にフォーカスを当てる（loginPass変更時も実行）
   useEffect(() => {
     if (userMode === 'teacher' && !isTeacherAuthenticated && selectedGrade && selectedClass) {
       const timer = setTimeout(() => {
         passwordInputRef.current?.focus();
-      }, 100);
+      }, 50);
       return () => clearTimeout(timer);
     }
-  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass]);
+  }, [userMode, isTeacherAuthenticated, selectedGrade, selectedClass, loginPass]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -251,7 +251,6 @@ const App: React.FC = () => {
                 onChange={e => setLoginPass(e.target.value)}
                 placeholder="パスワードを入力"
                 className="w-full px-4 py-4 border-2 border-slate-100 rounded-xl focus:border-blue-500 outline-none transition-all text-lg"
-                autoFocus
               />
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all text-lg">
