@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Storage } from '../store';
 import { Student, Homework, HomeworkSubmission, DayOfWeek, ClassId, Grade } from '../types';
@@ -21,6 +20,8 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
   });
   const [editingHwId, setEditingHwId] = useState<number | null>(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [expandedHwIds, setExpandedHwIds] = useState<Set<number>>(new Set());
+  const [showNewForm, setShowNewForm] = useState(false);
 
   const daysOptions: { value: DayOfWeek; label: string }[] = [
     { value: '1', label: '月' },
@@ -32,7 +33,6 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
     { value: '0', label: '日' },
   ];
 
-  // モーダル管理用ステート
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -84,7 +84,6 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
             return { ...prev, dayOfWeek: ['everyday'] };
         }
         
-        // 「毎日」が選ばれていた時に特定の曜日を押したら「毎日」を解除
         if (newDays.includes('everyday')) {
             newDays = [day];
         } else {
@@ -137,6 +136,7 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
     }
 
     setFormData({ title: '', dayOfWeek: ['everyday'], description: '' });
+    setShowNewForm(false);
   };
 
   const handleEditHomework = (hw: Homework) => {
@@ -146,12 +146,14 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
       dayOfWeek: Array.isArray(hw.dayOfWeek) ? hw.dayOfWeek : [hw.dayOfWeek as any],
       description: hw.description
     });
+    setShowNewForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingHwId(null);
     setFormData({ title: '', dayOfWeek: ['everyday'], description: '' });
+    setShowNewForm(false);
   };
 
   const handleDeleteHomework = (id: number) => {
@@ -179,8 +181,16 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
   };
 
   const handleToggleCheck = (homeworkId: number, studentId: number) => {
+    const today = Storage.formatDate(new Date());
+    
     setSubmissions(prev => {
-      const existingIndex = prev.findIndex(s => s.homeworkId === homeworkId && s.studentId === studentId);
+      // 🔥 今日の日付を含めて提出記録を検索
+      const existingIndex = prev.findIndex(s => 
+        s.homeworkId === homeworkId && 
+        s.studentId === studentId && 
+        s.touchDate === today
+      );
+      
       const now = new Date();
       let updated = [...prev];
 
@@ -197,7 +207,7 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
         const student = students.find(s => s.id === studentId);
         if (!student) return prev;
         updated.push({
-          id: `sub_${homeworkId}_${studentId}`,
+          id: `sub_${homeworkId}_${studentId}_${today}`,
           homeworkId,
           studentId,
           studentNumber: student.number,
@@ -205,7 +215,7 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
           nfcId: student.nfcId,
           touchRecorded: false,
           touchRecordedAt: null,
-          touchDate: null,
+          touchDate: today,
           touchTime: null,
           checked: true,
           checkedAt: now.toISOString(),
@@ -235,8 +245,22 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
     return days.sort().map(d => names[parseInt(d)]).join('・');
   };
 
+  const toggleExpand = (hwId: number) => {
+    setExpandedHwIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(hwId)) {
+        newSet.delete(hwId);
+      } else {
+        newSet.add(hwId);
+      }
+      return newSet;
+    });
+  };
+
+  const today = Storage.formatDate(new Date());
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-6 pb-20">
       <Modal 
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -246,177 +270,206 @@ const HomeworkView: React.FC<Props> = ({ grade, classId }) => {
         onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
       />
 
-      <div className={`bg-white p-6 rounded-3xl shadow-sm border-4 transition-all ${editingHwId ? 'border-indigo-400 ring-8 ring-indigo-50' : 'border-slate-100'}`}>
-        <h3 className="text-xl font-black mb-6 flex items-center text-slate-800">
-          {editingHwId ? '📝 宿題の内容を変更する' : '🆕 宿題の新規登録'}
-        </h3>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-black text-slate-500 mb-2 uppercase tracking-widest">宿題の名前</label>
-              <input 
-                type="text" 
-                value={formData.title}
-                onChange={e => setFormData({...formData, title: e.target.value})}
-                placeholder="例: 算数プリント、漢字練習"
-                className="w-full border-4 border-slate-50 p-4 rounded-2xl outline-none focus:border-indigo-500 focus:bg-white bg-slate-50 transition-all font-bold text-lg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-black text-slate-500 mb-2 uppercase tracking-widest">出す曜日（複数えらべます）</label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    onClick={() => toggleDay('everyday')}
-                    className={`px-4 py-2 rounded-xl font-black transition-all ${formData.dayOfWeek.includes('everyday') ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                >
-                    毎日
-                </button>
-                <div className="w-px h-8 bg-slate-200 mx-1"></div>
-                {daysOptions.map(opt => (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => toggleDay(opt.value)}
-                        className={`w-10 h-10 rounded-xl font-black transition-all ${formData.dayOfWeek.includes(opt.value) ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                    >
-                        {opt.label}
-                    </button>
-                ))}
+      {/* 新規登録ボタン */}
+      {!showNewForm && (
+        <button
+          onClick={() => setShowNewForm(true)}
+          className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+        >
+          <span className="text-2xl">➕</span>
+          新しい宿題を登録する
+        </button>
+      )}
+
+      {/* 新規登録・編集フォーム */}
+      {showNewForm && (
+        <div className={`bg-white p-6 rounded-3xl shadow-lg border-4 transition-all ${editingHwId ? 'border-indigo-400' : 'border-blue-400'}`}>
+          <h3 className="text-xl font-black mb-6 flex items-center text-slate-800">
+            {editingHwId ? '📝 宿題の内容を変更する' : '🆕 宿題の新規登録'}
+          </h3>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-black text-slate-500 mb-2">宿題の名前</label>
+                <input 
+                  type="text" 
+                  value={formData.title}
+                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  placeholder="例: 算数プリント、漢字練習"
+                  className="w-full border-2 border-slate-200 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-slate-500 mb-2">出す曜日</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                      type="button"
+                      onClick={() => toggleDay('everyday')}
+                      className={`px-4 py-2 rounded-lg font-black transition-all ${formData.dayOfWeek.includes('everyday') ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                  >
+                      毎日
+                  </button>
+                  {daysOptions.map(opt => (
+                      <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => toggleDay(opt.value)}
+                          className={`w-10 h-10 rounded-lg font-black transition-all ${formData.dayOfWeek.includes(opt.value) ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                      >
+                          {opt.label}
+                      </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-black text-slate-500 uppercase tracking-widest">宿題の説明</label>
-                <button 
-                    type="button" 
-                    onClick={handleAiSuggest}
-                    disabled={isAiGenerating}
-                    className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full hover:bg-indigo-100 font-black flex items-center transition-all"
-                >
-                    {isAiGenerating ? '⏳ 生成中...' : '✨ AIでやる気アップ説明を生成'}
-                </button>
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-black text-slate-500">宿題の説明</label>
+                  <button 
+                      type="button" 
+                      onClick={handleAiSuggest}
+                      disabled={isAiGenerating}
+                      className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full hover:bg-indigo-100 font-black"
+                  >
+                      {isAiGenerating ? '⏳ 生成中...' : '✨ AI生成'}
+                  </button>
+              </div>
+              <textarea 
+                value={formData.description}
+                onChange={e => setFormData({...formData, description: e.target.value})}
+                className="w-full border-2 border-slate-200 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all font-bold"
+                rows={2}
+                placeholder="児童に伝えるメッセージ"
+              ></textarea>
             </div>
-            <textarea 
-              value={formData.description}
-              onChange={e => setFormData({...formData, description: e.target.value})}
-              className="w-full border-4 border-slate-50 p-4 rounded-2xl outline-none focus:border-indigo-500 focus:bg-white bg-slate-50 transition-all font-bold text-lg"
-              rows={2}
-              placeholder="児童に伝えるメッセージや詳細を入力"
-            ></textarea>
-          </div>
-          <div className="flex space-x-4">
-            <button 
-              type="submit" 
-              className={`flex-1 ${editingHwId ? 'bg-indigo-600' : 'bg-blue-600'} text-white px-8 py-5 rounded-2xl transition-all font-black text-xl shadow-xl hover:scale-[1.02] active:scale-95`}
-            >
-              {editingHwId ? '変更を保存する' : '宿題を追加する'}
-            </button>
-            {editingHwId && (
+            <div className="flex space-x-3">
+              <button 
+                type="submit" 
+                className={`flex-1 ${editingHwId ? 'bg-indigo-600' : 'bg-blue-600'} text-white px-6 py-3 rounded-xl font-black hover:opacity-90 transition-all`}
+              >
+                {editingHwId ? '変更を保存' : '登録する'}
+              </button>
               <button 
                 type="button" 
                 onClick={cancelEdit}
-                className="bg-slate-200 text-slate-600 px-8 py-5 rounded-2xl hover:bg-slate-300 font-black transition-all"
+                className="bg-slate-200 text-slate-600 px-6 py-3 rounded-xl hover:bg-slate-300 font-black transition-all"
               >
-                中止
+                キャンセル
               </button>
-            )}
-          </div>
-        </form>
-      </div>
+            </div>
+          </form>
+        </div>
+      )}
 
-      <div className="space-y-8">
-        <h3 className="text-2xl font-black text-slate-800 flex items-center">
-          <span className="w-2 h-8 bg-blue-500 rounded-full mr-3"></span>
-          提出・確認リスト
+      {/* 宿題リスト */}
+      <div className="space-y-3">
+        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+          📋 登録済みの宿題
         </h3>
         
         {homeworkList.map(hw => {
-          const hwSubmissions = submissions.filter(s => s.homeworkId === hw.id);
+          const isExpanded = expandedHwIds.has(hw.id);
+          // 🔥 今日の提出記録のみを取得
+          const todaySubmissions = submissions.filter(s => 
+            s.homeworkId === hw.id && s.touchDate === today
+          );
+          const submittedCount = todaySubmissions.filter(s => s.touchRecorded).length;
+          const checkedCount = todaySubmissions.filter(s => s.checked).length;
+          
           return (
-            <div key={hw.id} className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-              <div className="px-8 py-6 border-b flex justify-between items-center bg-slate-50/50">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-1">
-                    <h4 className="font-black text-slate-800 text-xl">{hw.title}</h4>
-                    <span className="bg-blue-100 text-blue-600 px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-widest">
-                      {getDayNames(hw.dayOfWeek)}
-                    </span>
+            <div key={hw.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* ヘッダー部分（常に表示） */}
+              <div 
+                className="px-6 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                onClick={() => toggleExpand(hw.id)}
+              >
+                <div className="flex justify-between items-center">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h4 className="font-black text-slate-800 text-lg">{hw.title}</h4>
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold">
+                        {getDayNames(hw.dayOfWeek)}
+                      </span>
+                      <span className="text-sm text-slate-500 font-bold">
+                        提出: {submittedCount}/{students.length} · 確認: {checkedCount}/{students.length}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-400 font-bold">{hw.description}</p>
-                </div>
-                <div className="flex items-center space-x-2 ml-4">
-                  <button 
-                    onClick={() => handleEditHomework(hw)} 
-                    className="p-3 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-black flex items-center text-sm"
-                  >
-                    <span className="mr-1">✏️</span> 変更
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteHomework(hw.id)} 
-                    className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all font-black flex items-center text-sm"
-                  >
-                    <span className="mr-1">🗑️</span> 削除
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleEditHomework(hw); }} 
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all text-sm font-bold"
+                    >
+                      ✏️
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteHomework(hw.id); }} 
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all text-sm font-bold"
+                    >
+                      🗑️
+                    </button>
+                    <div className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                      ▼
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/30 text-slate-400 text-[11px] uppercase font-black tracking-widest border-b">
-                    <tr>
-                      <th className="px-8 py-4 w-20">No.</th>
-                      <th className="px-8 py-4">名前</th>
-                      <th className="px-8 py-4">児童の提出</th>
-                      <th className="px-8 py-4">先生の確認</th>
-                      <th className="px-8 py-4">最終更新</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {students.sort((a,b) => a.number - b.number).map(s => {
-                      const sub = hwSubmissions.find(sub => sub.studentId === s.id);
-                      return (
-                        <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-8 py-4 text-xs text-slate-300 font-black">{s.number}</td>
-                          <td className="px-8 py-4 text-base font-black text-slate-700">{s.name}</td>
-                          <td className="px-8 py-4">
-                            {sub?.touchRecorded ? (
-                              <div className="inline-flex items-center bg-green-50 text-green-600 px-3 py-1 rounded-lg text-xs font-black ring-1 ring-green-100">
-                                <span className="mr-1.5">📦</span> 提出: {sub.touchDate} {sub.touchTime}
+
+              {/* 展開部分（クリックで表示） */}
+              {isExpanded && (
+                <div className="border-t border-slate-100">
+                  {hw.description && (
+                    <div className="px-6 py-3 bg-slate-50 text-sm text-slate-600 font-medium">
+                      {hw.description}
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {students.sort((a,b) => a.number - b.number).map(s => {
+                        const sub = todaySubmissions.find(sub => sub.studentId === s.id);
+                        return (
+                          <div 
+                            key={s.id} 
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              sub?.checked 
+                                ? 'bg-green-50 border-green-200' 
+                                : sub?.touchRecorded 
+                                ? 'bg-blue-50 border-blue-200' 
+                                : 'bg-slate-50 border-slate-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-slate-400 font-black">{s.number}</span>
+                              <label className="cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={!!sub?.checked}
+                                  onChange={() => handleToggleCheck(hw.id, s.id)}
+                                  className="w-4 h-4 accent-green-500"
+                                />
+                              </label>
+                            </div>
+                            <div className="font-bold text-sm text-slate-700">{s.name}</div>
+                            {sub?.touchRecorded && (
+                              <div className="text-xs text-green-600 font-bold mt-1">
+                                📦 {sub.touchTime}
                               </div>
-                            ) : (
-                              <span className="text-xs text-slate-300 font-black italic">未提出</span>
                             )}
-                          </td>
-                          <td className="px-8 py-4">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input 
-                                type="checkbox" 
-                                checked={!!sub?.checked}
-                                onChange={() => handleToggleCheck(hw.id, s.id)}
-                                className="sr-only peer"
-                              />
-                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                            </label>
-                          </td>
-                          <td className="px-8 py-4 text-[11px] text-slate-400 font-bold font-mono">
-                            {sub?.checked ? `${sub.submittedDate} ${sub.submittedTime}` : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
 
         {homeworkList.length === 0 && (
-          <div className="text-center py-32 bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
-            <div className="text-6xl mb-6 opacity-20">📭</div>
-            <p className="text-slate-300 font-black text-xl">まだ登録されている宿題はありません</p>
-            <p className="text-slate-300 text-sm font-bold mt-2">上のフォームから宿題を登録して始めましょう</p>
+          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+            <div className="text-6xl mb-4 opacity-20">📭</div>
+            <p className="text-slate-400 font-bold">まだ宿題が登録されていません</p>
           </div>
         )}
       </div>
